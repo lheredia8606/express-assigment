@@ -1,16 +1,5 @@
 import { TDog } from "./types";
 
-export function isDog(obj: TDog): obj is TDog {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    (!obj.id || typeof obj.id === "number") &&
-    typeof obj.description === "string" &&
-    typeof obj.name === "string" &&
-    typeof obj.age === "number"
-  );
-}
-
 export const isDogPatchData = (
   obj: Partial<Omit<TDog, "id">>
 ): obj is Partial<Omit<TDog, "id">> => {
@@ -25,18 +14,26 @@ export const isDogPatchData = (
   );
 };
 
-export const isValidDogEntry = ([key, value]: [
-  string,
-  unknown
-]) => {
-  switch (key) {
-    case "name":
-    case "description":
-    case "breed":
-      return typeof value === "string";
-    case "age":
-      return typeof value === "number";
-    default:
-      return false;
+export const checkKeysInObj = (
+  keys: string[],
+  keyType: string,
+  obj: Record<string, unknown>,
+  errors: string[]
+) => {
+  for (const key of keys) {
+    if (!(key in obj) || typeof obj[key] !== keyType) {
+      errors.push(`${key} should be a ${keyType}`);
+    }
+  }
+};
+export const checkForInvalidKeys = (
+  keys: string[],
+  obj: Record<string, unknown>,
+  errors: string[]
+) => {
+  for (const key of Array.from(Object.keys(obj))) {
+    if (!keys.includes(key)) {
+      errors.push(`'${key}' is not a valid key`);
+    }
   }
 };

@@ -3,15 +3,15 @@ import { prisma } from "../prisma/prisma-instance";
 import { errorHandleMiddleware } from "./error-handler";
 import "express-async-errors";
 import {
-  isDog,
+  checkForInvalidKeys,
+  checkKeysInObj,
   isDogPatchData,
-  isValidDogEntry,
 } from "./helpers";
-import { objectEnumValues } from "@prisma/client/runtime";
 
 const app = express();
 app.use(express.json());
 // All code should go below this line
+
 app.get("/", (_req, res) => {
   res.json({ message: "Hello World!" }).status(200); // the 'status' is unnecessary but wanted to show you how to define a status
 });
@@ -44,25 +44,35 @@ app.get("/dogs/:id", async (req, res) => {
 });
 
 //create
-app.post("/dogs", async (req, resp) => {
+app.post("/dogs", async (req, res) => {
   const dogInput = req.body;
-  const errorObj: Record<string, unknown> = {};
-  for (const [key, value] of Array.from(
-    Object.entries(dogInput)
-  )) {
-    if (!isValidDogEntry([key, value])) {
-      errorObj.entry = value;
-    }
+  const errors: string[] = [];
+  checkKeysInObj(
+    ["name", "breed", "description"],
+    "string",
+    dogInput,
+    errors
+  );
+  checkKeysInObj(["age"], "number", dogInput, errors);
+  checkForInvalidKeys(
+    ["age", "name", "breed", "description"],
+    dogInput,
+    errors
+  );
+  if (errors.length > 0) {
+    return res.status(400).send({ errors: errors });
   }
-  if (Object.values(errorObj).length === 0) {
+  try {
     const dog = await prisma.dog.create({
       data: {
         ...dogInput,
       },
     });
-    return resp.status(201).send(dog);
-  } else {
-    resp.status(400).send("Bad entity input");
+    return res.status(201).send(dog);
+  } catch (error) {
+    return res
+      .status(400)
+      .send({ message: "dog not created" });
   }
 });
 
@@ -91,9 +101,20 @@ app.delete("/dogs/:id", async (req, res) => {
   res.status(200).send(deletedDog);
 });
 
+//update
 app.patch("/dogs/:id", async (req, res) => {
   const id = +req.params.id;
   const inputDog = req.body;
+  const errors: string[] = [];
+  checkForInvalidKeys(
+    ["age", "name", "breed", "description"],
+    inputDog,
+    errors
+  );
+  if (errors.length > 0) {
+    return res.status(400).send({ errors });
+  }
+
   if (!isNaN(id) && isDogPatchData(inputDog)) {
     const dog = await Promise.resolve()
       .then(() => {
@@ -108,7 +129,7 @@ app.patch("/dogs/:id", async (req, res) => {
       })
       .catch(() => null);
     if (dog) {
-      res.status(200).send(dog);
+      res.status(201).send(dog);
     } else {
       res.status(404).send({ message: "Dog not Found!" });
     }
